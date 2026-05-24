@@ -1,0 +1,54 @@
+defaults:
+  # Default compression format: gz or zst
+  compression: gz
+  
+  # Default retention count
+  retention_count: 30
+  
+  # All jobs enabled by default
+  enabled: true
+
+jobs:
+  # Application data backup
+  - name: app_data
+    enabled: true
+    source_dir: /srv/myapp/data
+    target_dir: /backups/app_data
+    compression: gz
+    retention_count: 30
+    excludes:
+      - "*.tmp"
+      - "cache/*"
+
+  # Database backup with zstd
+  - name: database
+    enabled: true
+    source_dir: /var/lib/postgresql
+    target_dir: /backups/database
+    compression: zst
+    retention_count: 60
+    excludes:
+      - "*.log"
+      - "pg_stat_tmp/*"
+
+  # User files backup
+  - name: home_data
+    enabled: true
+    source_dir: /home
+    target_dir: /backups/home
+    compression: gz
+    retention_count: 30
+    excludes:
+      - ".cache/*"
+      - ".local/share/Trash/*"
+      - "*.tmp"
+
+  # Configuration backup
+  - name: etc_backup
+    enabled: true
+    source_dir: /etc
+    target_dir: /backups/etc
+    compression: gz
+    retention_count: 120
+    excludes:
+      - "*.d/*"

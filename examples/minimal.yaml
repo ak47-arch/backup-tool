@@ -1,0 +1,19 @@
+defaults:
+  compression: gz
+  retention_count: 30
+
+jobs:
+  - name: photos
+    source_dir: /data/photos
+    target_dir: /backups/photos
+    excludes:
+      - "*.tmp"
+      - "thumbs/*"
+
+  - name: videos
+    source_dir: /data/videos
+    target_dir: /backups/videos
+    compression: zst
+    retention_count: 15
+    excludes:
+      - "*.partial"

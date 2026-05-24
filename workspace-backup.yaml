@@ -1,0 +1,25 @@
+defaults:
+  compression: gz
+  retention_count: 30
+  enabled: true
+
+jobs:
+  # Main workspace backup
+  - name: workspace
+    enabled: true
+    source_dir: /home/anupam/Desktop/workspace
+    target_dir: /home/anupam/Desktop/backup_data
+    compression: gz
+    retention_count: 30
+    excludes:
+      - "*.tmp"
+      - ".git/*"
+      - "node_modules/*"
+      - "__pycache__/*"
+      - ".pytest_cache/*"
+      - "*.pyc"
+      - ".venv/*"
+      - "venv/*"
+      - "*.log"
+      - ".DS_Store"
+      - "Thumbs.db"

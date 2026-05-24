@@ -1,0 +1,15 @@
+[Unit]
+Description=Universal Directory Backup Tool
+After=local-fs.target
+Wants=backup-tool.timer
+
+[Service]
+Type=oneshot
+User=root
+ExecStart=/opt/backup-tool/backup.sh --config /opt/backup-tool/jobs.yaml
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=backup-tool
+
+[Install]
+WantedBy=multi-user.target

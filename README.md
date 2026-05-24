@@ -1,10 +1,10 @@
 # Universal Directory Backup Tool
 
-Full-featured, standalone backup utility for creating daily compressed backups of arbitrary directories with automatic rolling retention.
+Full-featured, standalone backup utility for creating daily compressed backups of arbitrary directories or files with automatic rolling retention.
 
 ## Features
 
-✓ **Direct and Config Modes** - Backup single directory or manage multiple jobs via YAML config  
+✓ **Direct and Config Modes** - Backup a single file/directory or manage multiple jobs via YAML config  
 ✓ **Multiple Compressions** - tar.gz (default) or zstd for better compression  
 ✓ **Automatic Retention** - Keep latest N backups per job, automatically prune oldest  
 ✓ **Safe & Atomic** - Temporary file + atomic rename prevents partial artifacts  
@@ -35,7 +35,7 @@ chmod 755 ~/backup-tool/backup.sh
 
 ## Quick Start
 
-### Direct Mode - Single Directory
+### Direct Mode - Single File or Directory
 
 ```bash
 ./backup.sh --source /data/photos --target /backups/photos --job-name photos
@@ -108,7 +108,7 @@ Run backup:
 
 | Option | Mode | Description | Default |
 |--------|------|-------------|---------|
-| `--source PATH` | Direct | Source directory to backup | Required |
+| `--source PATH` | Direct | Source file or directory to backup | Required |
 | `--target PATH` | Direct | Target directory for backups | Required |
 | `--job-name NAME` | Direct | Unique job identifier | Required |
 | `--config FILE` | Config | YAML configuration file | - |
@@ -139,7 +139,7 @@ jobs:
     # Enable/disable this job (inheritance from defaults)
     enabled: true
     
-    # Source directory (must exist, must be readable)
+    # Source path (file or directory; must exist and be readable)
     source_dir: /path/to/source
     
     # Target directory for backups (must be writable or creatable)
@@ -162,7 +162,7 @@ jobs:
 ### Validation Rules
 
 - Job names are **unique** across config
-- Source directory **must exist** and be **readable**
+- Source path **must exist** and be **readable**
 - Target directory **must be writable** (created if needed)
 - Retention count **must be ≥ 1** (integer)
 - Compression **must be `gz` or `zst`**
@@ -348,7 +348,7 @@ grep backup-tool /var/log/syslog   # syslog
 
 ## Troubleshooting
 
-### Job Fails: "Source directory does not exist"
+### Job Fails: "Source path does not exist"
 
 ```bash
 # Check source actually exists and has correct permissions

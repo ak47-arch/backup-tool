@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.1] - 2026-05-24
+
+### Fixes
+- Allow `--source` and config `source_dir` to point to either a file or a directory
+- Fix config parsing so job names and field values are read reliably from YAML list entries
+- Enable single-file snapshot workflows that stage mixed file/directory restore sets
+
 ## [2.0] - 2026-05-04
 
 ### Complete Implementation - All 4 Milestones

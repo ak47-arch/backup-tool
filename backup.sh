@@ -3,7 +3,7 @@
 #################################################################################
 # Universal Directory Backup Tool
 # Version: 2.0 (All 4 Milestones)
-# Purpose: Create daily compressed backups with rolling retention for any directory
+# Purpose: Create daily compressed backups with rolling retention for any file or directory
 #################################################################################
 
 set -euo pipefail
@@ -61,12 +61,12 @@ log_verbose() {
 
 validate_source() {
     local source="$1"
-    if [[ ! -d "$source" ]]; then
-        log_error "Source directory does not exist: $source"
+    if [[ ! -e "$source" ]]; then
+        log_error "Source path does not exist: $source"
         return 1
     fi
     if [[ ! -r "$source" ]]; then
-        log_error "Source directory is not readable: $source"
+        log_error "Source path is not readable: $source"
         return 1
     fi
     return 0
@@ -282,14 +282,15 @@ enforce_retention() {
 parse_yaml_value() {
     local line="$1"
     local key="$2"
-    
-    # Check if line contains the key
-    if [[ "$line" == "$key:"* ]]; then
-        # Extract value after colon, trim whitespace
-        local value="${line#*:}"
-        value="${value#"${value%%[![:space:]]*}"}"  # trim leading whitespace
-        value="${value%"${value##*[![:space:]]}"}"  # trim trailing whitespace
-        # Remove quotes if present
+
+    local trimmed="$line"
+    trimmed="${trimmed#"${trimmed%%[![:space:]]*}"}"
+    [[ "$trimmed" == "- "* ]] && trimmed="${trimmed#- }"
+
+    if [[ "$trimmed" == "$key:"* ]]; then
+        local value="${trimmed#*:}"
+        value="${value#"${value%%[![:space:]]*}"}"
+        value="${value%"${value##*[![:space:]]}"}"
         value="${value%\"}"
         value="${value#\"}"
         echo "$value"
@@ -355,9 +356,16 @@ process_config_file() {
         
         # Parse defaults section
         if [[ "$in_defaults" == true ]]; then
-            parse_yaml_value "$line" "compression" && default_compression="$REPLY"
-            parse_yaml_value "$line" "retention_count" && default_retention="$REPLY"
-            parse_yaml_value "$line" "enabled" && default_enabled="$REPLY"
+            local value
+            if value=$(parse_yaml_value "$line" "compression"); then
+                default_compression="$value"
+            fi
+            if value=$(parse_yaml_value "$line" "retention_count"); then
+                default_retention="$value"
+            fi
+            if value=$(parse_yaml_value "$line" "enabled"); then
+                default_enabled="$value"
+            fi
         fi
         
         # Detect job start
@@ -375,16 +383,30 @@ process_config_file() {
             job_retention="$default_retention"
             job_excludes=()
             
-            parse_yaml_value "$line" "name" && job_name="$REPLY"
+            local value
+            if value=$(parse_yaml_value "$line" "name"); then
+                job_name="$value"
+            fi
         fi
         
         # Parse job fields
         if [[ "$in_job" == true ]]; then
-            parse_yaml_value "$line" "enabled" && job_enabled="$REPLY"
-            parse_yaml_value "$line" "source_dir" && job_source="$REPLY"
-            parse_yaml_value "$line" "target_dir" && job_target="$REPLY"
-            parse_yaml_value "$line" "compression" && job_compression="$REPLY"
-            parse_yaml_value "$line" "retention_count" && job_retention="$REPLY"
+            local value
+            if value=$(parse_yaml_value "$line" "enabled"); then
+                job_enabled="$value"
+            fi
+            if value=$(parse_yaml_value "$line" "source_dir"); then
+                job_source="$value"
+            fi
+            if value=$(parse_yaml_value "$line" "target_dir"); then
+                job_target="$value"
+            fi
+            if value=$(parse_yaml_value "$line" "compression"); then
+                job_compression="$value"
+            fi
+            if value=$(parse_yaml_value "$line" "retention_count"); then
+                job_retention="$value"
+            fi
             
             # Parse excludes list
             if [[ "$line" == *"excludes:"* ]]; then
@@ -589,7 +611,7 @@ USAGE:
     $0 --config /path/jobs.yaml [OPTIONS]
 
 OPTIONS:
-  --source PATH         Source directory to backup (direct mode)
+  --source PATH         Source file or directory to backup (direct mode)
   --target PATH         Target directory for backups (direct mode)
   --job-name NAME       Unique job name (direct mode)
   --config FILE         YAML config file (config mode)

@@ -143,6 +143,8 @@ create_backup_artifact() {
     local artifact_name="${job_name}_${timestamp}.${ext}"
     local artifact_path="${target_dir}/${artifact_name}"
     local temp_artifact="${artifact_path}.tmp"
+    local source_parent="$(dirname "$source")"
+    local source_name="$(basename "$source")"
     
     # Ensure target directory exists
     mkdir -p "$target_dir" || {
@@ -161,13 +163,19 @@ create_backup_artifact() {
         tar_cmd="$tar_cmd -c --zstd -f"
     fi
     
-    # Add source and temp path
-    tar_cmd="$tar_cmd '$temp_artifact' -C '$(dirname "$source")' '$(basename "$source")'"
+    # Add temp path
+    tar_cmd="$tar_cmd '$temp_artifact'"
     
-    # Add excludes
+    # Add excludes before source operands so tar applies them
     for exclude in "${excludes[@]}"; do
         tar_cmd="$tar_cmd --exclude='$exclude'"
+        if [[ "$exclude" != "$source_name"/* ]]; then
+            tar_cmd="$tar_cmd --exclude='$source_name/$exclude'"
+        fi
     done
+
+    # Add source
+    tar_cmd="$tar_cmd -C '$source_parent' '$source_name'"
     
     log_verbose "Tar command: $tar_cmd"
     

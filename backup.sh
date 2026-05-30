@@ -173,6 +173,7 @@ create_backup_artifact() {
     
     if [[ "$DRY_RUN" == true ]]; then
         log_info "[DRY-RUN] Would create artifact: $artifact_path"
+        echo "$artifact_path"
         return 0
     fi
     
@@ -299,6 +300,24 @@ parse_yaml_value() {
     return 1
 }
 
+parse_yaml_list_item() {
+    local line="$1"
+
+    local trimmed="$line"
+    trimmed="${trimmed#"${trimmed%%[![:space:]]*}"}"
+
+    if [[ "$trimmed" == "- "* ]]; then
+        local value="${trimmed#- }"
+        value="${value#"${value%%[![:space:]]*}"}"
+        value="${value%"${value##*[![:space:]]}"}"
+        value="${value%\"}"
+        value="${value#\"}"
+        echo "$value"
+        return 0
+    fi
+    return 1
+}
+
 is_job_section() {
     local line="$1"
     [[ "$line" == "  - name:"* ]]
@@ -327,6 +346,7 @@ process_config_file() {
     local in_defaults=false
     local in_jobs=false
     local in_job=false
+    local in_excludes=false
     
     local job_name=""
     local job_enabled=true
@@ -345,12 +365,14 @@ process_config_file() {
         if [[ "$line" == "defaults:" ]]; then
             in_defaults=true
             in_jobs=false
+            in_excludes=false
             continue
         fi
         
         if [[ "$line" == "jobs:" ]]; then
             in_defaults=false
             in_jobs=true
+            in_excludes=false
             continue
         fi
         
@@ -378,7 +400,11 @@ process_config_file() {
             fi
             
             in_job=true
+            in_excludes=false
+            job_name=""
             job_enabled="$default_enabled"
+            job_source=""
+            job_target=""
             job_compression="$default_compression"
             job_retention="$default_retention"
             job_excludes=()
@@ -387,48 +413,45 @@ process_config_file() {
             if value=$(parse_yaml_value "$line" "name"); then
                 job_name="$value"
             fi
+            continue
         fi
         
         # Parse job fields
         if [[ "$in_job" == true ]]; then
+            if [[ "$in_excludes" == true ]]; then
+                local exclude_value
+                if exclude_value=$(parse_yaml_list_item "$line"); then
+                    job_excludes+=("$exclude_value")
+                    continue
+                fi
+                in_excludes=false
+            fi
+
             local value
             if value=$(parse_yaml_value "$line" "enabled"); then
                 job_enabled="$value"
+                continue
             fi
             if value=$(parse_yaml_value "$line" "source_dir"); then
                 job_source="$value"
+                continue
             fi
             if value=$(parse_yaml_value "$line" "target_dir"); then
                 job_target="$value"
+                continue
             fi
             if value=$(parse_yaml_value "$line" "compression"); then
                 job_compression="$value"
+                continue
             fi
             if value=$(parse_yaml_value "$line" "retention_count"); then
                 job_retention="$value"
+                continue
             fi
             
-            # Parse excludes list
-            if [[ "$line" == *"excludes:"* ]]; then
-                # Read next lines until we hit a non-exclude line
-                while IFS= read -r exclude_line; do
-                    # Skip empty lines
-                    [[ -z "${exclude_line// }" ]] && continue
-                    
-                    # Stop if we hit another field
-                    if [[ "$exclude_line" == *":"* ]] && [[ ! "$exclude_line" =~ ^[[:space:]]*- ]]; then
-                        # This is a new field, break and process it in next iteration
-                        # This is a simplification; full implementation would buffer this
-                        break
-                    fi
-                    
-                    # Parse exclude pattern
-                    if [[ "$exclude_line" =~ ^[[:space:]]*-[[:space:]]*\"(.*)\" ]]; then
-                        job_excludes+=("${BASH_REMATCH[1]}")
-                    elif [[ "$exclude_line" =~ ^[[:space:]]*-[[:space:]]*(.*) ]]; then
-                        job_excludes+=("${BASH_REMATCH[1]}")
-                    fi
-                done < <(tail -n +$((LINENO+1)) "$config")
+            if [[ "${line#"${line%%[![:space:]]*}"}" == "excludes:" ]]; then
+                in_excludes=true
+                continue
             fi
         fi
     done < "$config"
@@ -489,11 +512,11 @@ process_job() {
     fi
     
     # Create backup
-    if create_backup_artifact "$job_source" "$job_target" "$job_name" "$job_compression" "${job_excludes[@]}"; then
+    local created_artifact
+    if created_artifact="$(create_backup_artifact "$job_source" "$job_target" "$job_name" "$job_compression" "${job_excludes[@]}")"; then
         # Create checksum
-        local last_artifact=$(get_managed_artifacts "$job_target" "$job_name" | tail -1)
-        if [[ -n "$last_artifact" ]]; then
-            create_checksum "$last_artifact"
+        if [[ -n "$created_artifact" ]]; then
+            create_checksum "$created_artifact"
         fi
         
         # Enforce retention
@@ -537,11 +560,11 @@ process_direct_mode() {
     fi
     
     # Create backup
-    if create_backup_artifact "$source" "$target" "$job_name" "$FORMAT"; then
+    local created_artifact
+    if created_artifact="$(create_backup_artifact "$source" "$target" "$job_name" "$FORMAT")"; then
         # Create checksum
-        local last_artifact=$(get_managed_artifacts "$target" "$job_name" | tail -1)
-        if [[ -n "$last_artifact" ]]; then
-            create_checksum "$last_artifact"
+        if [[ -n "$created_artifact" ]]; then
+            create_checksum "$created_artifact"
         fi
         
         # Enforce retention
